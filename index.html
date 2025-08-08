@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>新加坡景点轮播展示</title>
+  <style>
+    body {
+      margin: 0; font-family: Arial; background: #000; color: #fff;
+      display: flex; align-items: center; justify-content: center; min-height: 100vh;
+      overflow-x: hidden;
+    }
+    .container {
+      width: 90%; max-width: 980px; position: relative;
+    }
+    .carousel {
+      position: relative; overflow: hidden; border-radius: 10px;
+    }
+    .slides {
+      display: flex; transition: transform 0.6s ease; width: 100%;
+    }
+    .slide {
+      min-width: 100%; position: relative;
+      user-select: none;
+    }
+    .slide img {
+      width: 100%; height: 60vh; object-fit: cover; cursor: pointer;
+      border-radius: 10px;
+      display: block;
+    }
+    .caption {
+      position: absolute; left: 16px; bottom: 16px;
+      background: rgba(0,0,0,0.5); padding: 12px; border-radius: 6px;
+      max-width: 90%;
+    }
+    .caption h3 {
+      margin: 0 0 5px; font-size: 18px;
+    }
+    .caption p {
+      margin: 0; font-size: 13px;
+    }
+    .btn {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      background: rgba(0,0,0,0.5); border: none; width: 40px; height: 40px;
+      border-radius: 50%; cursor: pointer; color: #fff; font-size: 20px;
+      user-select: none;
+    }
+    .btn.left {
+      left: 10px;
+    }
+    .btn.right {
+      right: 10px;
+    }
+    .dots {
+      position: absolute; bottom: 10px; left: 50%;
+      transform: translateX(-50%);
+      display: flex; gap: 8px;
+    }
+    .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: rgba(255,255,255,0.4); cursor: pointer;
+      user-select: none;
+    }
+    .dot.active {
+      background: #0ff;
+    }
+    /* 缩略图导航条 */
+    .thumbnails {
+      margin-top: 12px;
+      display: flex; justify-content: center; gap: 12px;
+      user-select: none;
+    }
+    .thumbnail {
+      width: 80px; height: 50px; object-fit: cover; border-radius: 6px;
+      cursor: pointer; opacity: 0.7;
+      border: 2px solid transparent;
+      transition: opacity 0.3s, border-color 0.3s;
+    }
+    .thumbnail.active {
+      opacity: 1;
+      border-color: #0ff;
+    }
+
+    /* 弹窗 */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000;
+      visibility: hidden;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .modal-overlay.show {
+      visibility: visible;
+      opacity: 1;
+    }
+    .modal {
+      background: #222; padding: 20px; border-radius: 10px;
+      max-width: 400px; color: #fff;
+      box-shadow: 0 0 15px #0ff;
+      text-align: center;
+      position: relative;
+    }
+    .modal h2 {
+      margin-top: 0;
+    }
+    .modal p {
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    .modal button {
+      margin-top: 15px; padding: 10px 20px;
+      background: #0ff; border: none; color: #000;
+      border-radius: 6px; cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.3s;
+    }
+    .modal button:hover {
+      background: #0cc;
+    }
+    .modal .close-btn {
+      position: absolute; top: 10px; right: 15px;
+      background: transparent; border: none; font-size: 22px;
+      color: #fff; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="carousel" id="carousel">
+      <div class="slides" id="slides"></div>
+      <button class="btn left" id="prev">&#10094;</button>
+      <button class="btn right" id="next">&#10095;</button>
+      <div class="dots" id="dots"></div>
+    </div>
+    <div class="thumbnails" id="thumbnails"></div>
+  </div>
+
+  <!-- 弹窗 -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalDesc">
+      <button class="close-btn" id="modalCloseBtn" aria-label="关闭弹窗">&times;</button>
+      <h2 id="modalTitle"></h2>
+      <p id="modalDesc"></p>
+      <button id="modalMapBtn">查看地图</button>
+    </div>
+  </div>
+
+  <script>
+    const images = [
+      {
+        title: '滨海湾金沙',
+        file: 'marina.jpg',
+        maps: 'https://www.google.com/maps/search/?api=1&query=Marina+Bay+Sands+Singapore',
+        desc: '滨海湾金沙是新加坡地标性的综合度假村，拥有著名的空中花园与无边泳池。'
+      },
+      {
+        title: '鱼尾狮公园',
+        file: 'merlion.jpg',
+        maps: 'https://www.google.com/maps/search/?api=1&query=Merlion+Park+Singapore',
+        desc: '鱼尾狮是新加坡的象征，鱼身代表起源于渔村，狮首代表历史上的“狮城”传说。'
+      },
+      {
+        title: '滨海湾花园',
+        file: 'gardens.jpg',
+        maps: 'https://www.google.com/maps/search/?api=1&query=Gardens+by+the+Bay',
+        desc: '滨海湾花园以其巨大的“超级树”与冷室花园闻名，是城市与自然结合的代表性公园。'
+      },
+      {
+        title: '圣淘沙',
+        file: 'sentosa.jpg',
+        maps: 'https://www.google.com/maps/search/?api=1&query=Sentosa+Singapore',
+        desc: '圣淘沙是著名的度假岛，包含海滩、环球影城及多样化的娱乐设施。'
+      }
+    ];
+
+    const slidesEl = document.getElementById('slides');
+    const dotsEl = document.getElementById('dots');
+    const thumbnailsEl = document.getElementById('thumbnails');
+    const modalOverlay = document.getElementById('modalOverlay');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalDesc = document.getElementById('modalDesc');
+    const modalMapBtn = document.getElementById('modalMapBtn');
+    const modalCloseBtn = document.getElementById('modalCloseBtn');
+
+    let current = 0;
+    let autoPlayInterval;
+
+    function createSlides() {
+      images.forEach((it, idx) => {
+        // 轮播图
+        const slide = document.createElement('div');
+        slide.className = 'slide';
+        slide.innerHTML = `<img src="${it.file}" alt="${it.title}" tabindex="0">` +
+          `<div class='caption'><h3>${it.title}</h3><p>${it.desc}</p></div>`;
+        slidesEl.appendChild(slide);
+
+        // 底部小点
+        const dot = document.createElement('div');
+        dot.className = 'dot' + (idx === 0 ? ' active' : '');
+        dot.addEventListener('click', () => {
+          current = idx;
+          update();
+          resetAutoPlay();
+        });
+        dotsEl.appendChild(dot);
+
+        // 缩略图
+        const thumb = document.createElement('img');
+        thumb.src = it.file;
+        thumb.alt = it.title + ' 缩略图';
+        thumb.className = 'thumbnail' + (idx === 0 ? ' active' : '');
+        thumb.tabIndex = 0;
+        thumb.addEventListener('click', () => {
+          current = idx;
+          update();
+          resetAutoPlay();
+        });
+        thumbnailsEl.appendChild(thumb);
+      });
+    }
+
+    function update() {
+      slidesEl.style.transform = `translateX(-${current * 100}%)`;
+      [...dotsEl.children].forEach((d, i) => d.classList.toggle('active', i === current));
+      [...thumbnailsEl.children].forEach((t, i) => t.classList.toggle('active', i === current));
+    }
+
+    function showModal(index) {
+      modalTitle.textContent = images[index].title;
+      modalDesc.textContent = images[index].desc;
+      modalMapBtn.onclick = () => {
+        window.open(images[index].maps, '_blank');
+      };
+      modalOverlay.classList.add('show');
+    }
+
+    function hideModal() {
+      modalOverlay.classList.remove('show');
+    }
+
+    function resetAutoPlay() {
+      clearInterval(autoPlayInterval);
+      autoPlayInterval = setInterval(() => {
+        current = (current + 1) % images.length;
+        update();
+      }, 4000);
+    }
+
+    document.getElementById('prev').onclick = () => {
+      current = (current - 1 + images.length) % images.length;
+      update();
+      resetAutoPlay();
+    };
+    document.getElementById('next').onclick = () => {
+      current = (current + 1) % images.length;
+      update();
+      resetAutoPlay();
+    };
+
+    slidesEl.addEventListener('click', (e) => {
+      if (e.target.tagName === 'IMG') {
+        showModal(current);
+      }
+    });
+    slidesEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && document.activeElement.tagName === 'IMG') {
+        showModal(current);
+      }
+    });
+
+    modalCloseBtn.onclick = hideModal;
+    modalOverlay.onclick = (e) => {
+      if (e.target === modalOverlay) {
+        hideModal();
+      }
+    };
+
+    // 鼠标悬停暂停
+    document.getElementById('carousel').addEventListener('mouseenter', () => {
+      clearInterval(autoPlayInterval);
+    });
+    document.getElementById('carousel').addEventListener('mouseleave', () => {
+      resetAutoPlay();
+    });
+
+    // 初始化
+    createSlides();
+    update();
+    resetAutoPlay();
+  </script>
+</body>
+</html>
